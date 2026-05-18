@@ -1,0 +1,793 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0">
+<title>CyberMines v0.1</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+:root{
+  --bg:#040407;--bg2:#07070f;--panel:#0b0b18;--border:#181830;
+  --magenta:#ff00aa;--cyan:#00ffee;--purple:#cc00ff;--gold:#ffcc00;
+  --red:#ff2244;--green:#00ff88;--blue:#00aaff;--orange:#ff8800;
+  --text:#e8e8ff;--dim:#7070a0;
+}
+body{background:var(--bg);color:var(--text);font-family:'JetBrains Mono',monospace;min-height:100vh;overflow-x:hidden;}
+body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 3px,rgba(0,0,0,0.018) 3px,rgba(0,0,0,0.018) 4px);pointer-events:none;z-index:9998;}
+
+#hdr{display:flex;justify-content:space-between;align-items:center;padding:10px 14px;border-bottom:1px solid var(--border);background:var(--bg2);position:sticky;top:0;z-index:100;}
+.logo{font-family:'Orbitron',sans-serif;font-weight:900;font-size:16px;letter-spacing:3px;color:var(--magenta);text-shadow:0 0 18px rgba(255,0,170,0.7);}
+.logo span{color:var(--cyan);}
+.bal-wrap{text-align:right;}
+.bal-lbl{font-size:8px;color:var(--dim);letter-spacing:2px;}
+#bal{font-size:18px;font-weight:600;color:var(--gold);font-family:'Orbitron',sans-serif;text-shadow:0 0 10px rgba(255,204,0,0.35);}
+
+#main{padding:10px;max-width:430px;margin:0 auto;}
+
+#statbar{display:grid;grid-template-columns:1fr 1fr 1fr;gap:5px;margin-bottom:10px;}
+.scell{background:var(--panel);border:1px solid var(--border);border-radius:6px;padding:7px 8px;text-align:center;}
+.slbl{font-size:7px;color:var(--dim);letter-spacing:2px;margin-bottom:2px;}
+.sval{font-family:'Orbitron',sans-serif;font-size:15px;font-weight:700;}
+#mult-val{color:var(--cyan);text-shadow:0 0 12px rgba(0,255,238,0.5);}
+#cash-val{color:var(--green);}
+#picks-val{color:var(--magenta);}
+
+#grid{display:grid;gap:5px;margin-bottom:10px;}
+.tile{aspect-ratio:1;border-radius:5px;border:1px solid var(--border);background:var(--panel);cursor:pointer;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden;transition:transform 0.08s,border-color 0.12s,box-shadow 0.12s;}
+.tile::before{content:'';position:absolute;inset:0;background:radial-gradient(circle at 50% 30%,rgba(255,0,170,0.05),transparent 70%);pointer-events:none;}
+.tile:hover:not(.revealed):not(.disabled){transform:scale(1.07);border-color:rgba(255,0,170,0.55);box-shadow:0 0 11px rgba(255,0,170,0.22);}
+.tile:active:not(.revealed):not(.disabled){transform:scale(0.91);}
+.tile.safe{border-color:var(--cyan);box-shadow:0 0 13px rgba(0,255,238,0.28),inset 0 0 10px rgba(0,255,238,0.07);animation:tSafe 0.3s ease-out;}
+.tile.mine{border-color:var(--red);box-shadow:0 0 20px rgba(255,34,68,0.45);animation:tMine 0.4s ease-out;}
+.tile.mine-dim{border-color:rgba(255,34,68,0.2);opacity:0.45;}
+.tile.disabled{cursor:default;}
+.ticon{font-size:0;transition:font-size 0.1s;}
+/* GRID SIZE SELECTOR — standalone above ctrl */
+#gridsz{display:flex;gap:5px;margin-bottom:8px;}
+.gsz{flex:1;height:32px;border-radius:5px;background:var(--panel);border:1px solid var(--border);color:var(--dim);font-family:'Orbitron',sans-serif;font-size:9px;font-weight:700;cursor:pointer;transition:all 0.12s;letter-spacing:1px;}
+.gsz:hover:not(.active):not(:disabled){border-color:rgba(255,0,170,0.4);color:rgba(255,0,170,0.7);}
+.gsz.active{background:rgba(255,0,170,0.12);border-color:var(--magenta);color:var(--magenta);box-shadow:0 0 8px rgba(255,0,170,0.2);}
+.gsz:disabled{opacity:0.3;cursor:default;}
+
+/* PROVABLY FAIR PANEL */
+#pf-bar{background:var(--panel);border:1px solid var(--border);border-radius:6px;padding:8px 10px;margin-top:7px;font-size:8px;color:var(--dim);}
+.pf-row{display:flex;align-items:center;gap:6px;margin-bottom:5px;}
+.pf-row:last-child{margin-bottom:0;}
+.pf-lbl{color:rgba(255,0,170,0.5);letter-spacing:1px;width:88px;flex-shrink:0;font-size:8px;}
+.pf-val{color:var(--text);font-family:'JetBrains Mono',monospace;font-size:8px;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+#pf-client-in{flex:1;background:var(--bg);border:1px solid var(--border);color:var(--cyan);font-family:'JetBrains Mono',monospace;font-size:8px;padding:4px 6px;border-radius:3px;outline:none;}
+#pf-client-in:focus{border-color:var(--cyan);}
+.pf-btn{background:rgba(255,0,170,0.1);border:1px solid rgba(255,0,170,0.3);color:var(--magenta);font-family:'Orbitron',sans-serif;font-size:7px;letter-spacing:1px;padding:3px 8px;border-radius:3px;cursor:pointer;white-space:nowrap;transition:all 0.12s;}
+.pf-btn:hover{background:rgba(255,0,170,0.2);border-color:var(--magenta);}
+.pf-status{font-size:7px;letter-spacing:1px;}
+
+/* VERIFIER OVERLAY */
+#pf-ov{position:fixed;inset:0;background:rgba(4,4,7,0.97);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:1002;backdrop-filter:blur(8px);padding:20px;}
+#pf-ov.hid{display:none;}
+#pf-box{background:var(--panel);border:1px solid rgba(255,0,170,0.3);border-radius:10px;padding:22px;width:100%;max-width:400px;}
+.pf-title{font-family:'Orbitron',sans-serif;font-size:12px;font-weight:900;color:var(--magenta);letter-spacing:3px;margin-bottom:4px;text-shadow:0 0 16px var(--magenta);}
+.pf-sub{font-size:8px;color:var(--dim);letter-spacing:2px;margin-bottom:16px;}
+.pf-field{margin-bottom:10px;}
+.pf-field label{display:block;font-size:7px;color:var(--dim);letter-spacing:2px;margin-bottom:4px;}
+.pf-field input{width:100%;background:var(--bg);border:1px solid var(--border);color:var(--cyan);font-family:'JetBrains Mono',monospace;font-size:9px;padding:6px 8px;border-radius:4px;outline:none;}
+.pf-field input:focus{border-color:var(--cyan);}
+#pf-verify-btn{width:100%;height:36px;background:linear-gradient(135deg,var(--magenta),#880055);color:#fff;border:none;border-radius:5px;font-family:'Orbitron',sans-serif;font-size:10px;font-weight:700;letter-spacing:2px;cursor:pointer;margin-top:4px;margin-bottom:12px;}
+#pf-result{font-size:9px;color:var(--text);line-height:1.8;font-family:'JetBrains Mono',monospace;word-break:break-all;white-space:pre-wrap;min-height:40px;}
+#pf-result.ok{color:var(--green);}
+#pf-result.fail{color:var(--red);}
+.pf-close{width:100%;height:32px;background:transparent;border:1px solid var(--border);color:var(--dim);border-radius:5px;font-family:'Orbitron',sans-serif;font-size:9px;cursor:pointer;margin-top:8px;}
+.pf-close:hover{border-color:var(--magenta);color:var(--magenta);}
+@keyframes tSafe{0%{transform:scale(1.3);}100%{transform:scale(1);}}
+@keyframes tMine{0%{transform:scale(1.35);box-shadow:0 0 40px rgba(255,34,68,0.8);}100%{transform:scale(1);}}
+@keyframes shk{0%,100%{transform:translateX(0);}15%{transform:translateX(-8px);}35%{transform:translateX(9px);}55%{transform:translateX(-5px);}75%{transform:translateX(4px);}90%{transform:translateX(-2px);}}
+.shake{animation:shk 0.4s ease-out;}
+
+#ctrl{background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:11px;margin-bottom:8px;}
+.row{display:flex;align-items:center;gap:7px;margin-bottom:8px;}
+.row:last-child{margin-bottom:0;}
+.rlbl{font-size:8px;color:var(--dim);letter-spacing:2px;width:44px;flex-shrink:0;}
+.bet-wrap{display:flex;align-items:center;gap:4px;flex:1;}
+.adj{background:var(--bg);border:1px solid var(--border);color:var(--text);width:30px;height:30px;border-radius:4px;font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:border-color 0.12s,color 0.12s;}
+.adj:hover{border-color:var(--magenta);color:var(--magenta);}
+#bet-in{flex:1;background:var(--bg);border:1px solid var(--border);color:var(--gold);font-family:'Orbitron',sans-serif;font-size:14px;font-weight:700;text-align:center;padding:5px;border-radius:4px;height:30px;}
+#bet-in:focus{outline:none;border-color:var(--cyan);}
+.qbets{display:flex;gap:3px;flex:1;}
+.qb{flex:1;background:var(--bg);border:1px solid var(--border);color:var(--dim);font-size:9px;padding:5px 1px;border-radius:4px;cursor:pointer;transition:all 0.12s;}
+.qb:hover{border-color:var(--cyan);color:var(--cyan);}
+.mines-wrap{display:flex;align-items:center;gap:8px;flex:1;}
+#mines-sl{flex:1;-webkit-appearance:none;appearance:none;height:4px;background:linear-gradient(90deg,var(--magenta),var(--border));border-radius:2px;outline:none;cursor:pointer;}
+#mines-sl::-webkit-slider-thumb{-webkit-appearance:none;width:18px;height:18px;border-radius:50%;background:var(--magenta);box-shadow:0 0 9px var(--magenta);cursor:pointer;}
+.mnum{font-family:'Orbitron',sans-serif;font-weight:700;color:var(--magenta);width:22px;text-align:right;font-size:12px;}
+.minfo{font-size:8px;color:var(--dim);padding:3px 0;display:flex;justify-content:space-between;}
+.btns{gap:8px;}
+.btn-s,.btn-c{flex:1;height:42px;border-radius:6px;font-family:'Orbitron',sans-serif;font-size:10px;font-weight:700;letter-spacing:1.5px;cursor:pointer;border:none;transition:all 0.15s;}
+.btn-s{background:linear-gradient(135deg,var(--magenta),#880055);color:#fff;box-shadow:0 0 16px rgba(255,0,170,0.28);}
+.btn-s:hover:not(:disabled){box-shadow:0 0 26px rgba(255,0,170,0.52);}
+.btn-s:disabled{opacity:0.3;cursor:default;box-shadow:none;}
+.btn-c{background:linear-gradient(135deg,var(--green),#007744);color:#000;font-weight:900;}
+.btn-c:disabled{opacity:0.2;cursor:default;}
+
+#history{display:flex;gap:4px;margin-top:7px;min-height:22px;}
+.hdot{width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:9px;font-family:'Orbitron',sans-serif;font-weight:700;}
+
+/* GATE */
+#gate-ov{position:fixed;inset:0;background:rgba(4,4,7,0.97);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:1000;backdrop-filter:blur(8px);}
+#gate-ov.hid{display:none;}
+.g-hdr{font-family:'Orbitron',sans-serif;font-size:13px;font-weight:900;color:var(--magenta);text-shadow:0 0 22px var(--magenta);letter-spacing:5px;margin-bottom:4px;animation:blnk 1.2s infinite;}
+.g-sub{font-size:8px;color:var(--dim);letter-spacing:3px;margin-bottom:6px;}
+.g-pre{font-size:10px;color:var(--dim);margin-bottom:18px;}
+@keyframes blnk{0%,100%{opacity:1;}50%{opacity:0.6;}}
+
+#gcards{display:flex;gap:8px;margin-bottom:22px;padding:0 4px;}
+.gc{flex:1;border-radius:8px;border:1px solid rgba(255,255,255,0.06);background:rgba(255,255,255,0.02);padding:14px 5px;text-align:center;transition:all 0.07s;}
+.gc.lit{transform:scale(1.1);border-color:var(--gc-col);background:rgba(255,255,255,0.05);box-shadow:0 0 26px var(--gc-col),inset 0 0 10px rgba(255,255,255,0.03);}
+.gc-mult{font-family:'Orbitron',sans-serif;font-size:17px;font-weight:900;color:var(--gc-col);text-shadow:0 0 10px var(--gc-col);}
+.gc-name{font-size:8px;letter-spacing:2px;color:var(--dim);margin-top:4px;}
+.gc-prob{font-size:8px;color:rgba(255,255,255,0.18);margin-top:2px;}
+
+#gate-res{font-family:'Orbitron',sans-serif;font-size:18px;font-weight:900;letter-spacing:3px;text-align:center;animation:popIn 0.4s ease-out;}
+#gate-res.hid{display:none;}
+#gate-newmult{font-size:10px;color:var(--dim);margin-top:8px;letter-spacing:1px;}
+#gate-newmult.hid{display:none;}
+@keyframes popIn{0%{transform:scale(0.4);opacity:0;}60%{transform:scale(1.1);}100%{transform:scale(1);opacity:1;}}
+
+/* RESULT */
+#res-ov{position:fixed;inset:0;background:rgba(4,4,7,0.93);display:flex;align-items:center;justify-content:center;z-index:1001;backdrop-filter:blur(8px);}
+#res-ov.hid{display:none;}
+#res-box{text-align:center;padding:28px 24px;}
+.rt{font-family:'Orbitron',sans-serif;font-size:22px;font-weight:900;margin-bottom:6px;letter-spacing:4px;}
+.ra{font-family:'Orbitron',sans-serif;font-size:40px;font-weight:900;margin-bottom:10px;}
+.rs{font-size:9px;color:var(--dim);margin-bottom:22px;line-height:2;}
+.btn-again{background:linear-gradient(135deg,var(--magenta),#880055);color:#fff;border:none;border-radius:6px;font-family:'Orbitron',sans-serif;font-size:11px;font-weight:700;letter-spacing:2px;padding:12px 26px;cursor:pointer;box-shadow:0 0 18px rgba(255,0,170,0.4);}
+.btn-again:hover{box-shadow:0 0 28px rgba(255,0,170,0.65);}
+
+#seedbar{background:var(--panel);border:1px solid var(--border);border-radius:5px;padding:5px 9px;font-size:8px;color:var(--dim);margin-top:7px;}
+.sk{color:rgba(255,0,170,0.45);margin-right:3px;}
+</style>
+</head>
+<body>
+
+<div id="hdr">
+  <div class="logo">CYBER<span>MINES</span></div>
+  <div class="bal-wrap">
+    <div class="bal-lbl">BALANCE</div>
+    <div id="bal">100.00</div>
+  </div>
+</div>
+
+<div id="main">
+  <div id="statbar">
+    <div class="scell"><div class="slbl">MULTIPLIER</div><div class="sval" id="mult-val">1.00×</div></div>
+    <div class="scell"><div class="slbl">CASH OUT</div><div class="sval" id="cash-val" style="color:var(--dim)">—</div></div>
+    <div class="scell"><div class="slbl">PICKS [GATE]</div><div class="sval" id="picks-val" style="color:var(--dim)">—</div></div>
+  </div>
+
+  <!-- GRID SIZE — outside ctrl so it's never affected by game state -->
+  <div id="gridsz">
+    <button class="gsz" onclick="setGrid(3)">9 TILES</button>
+    <button class="gsz active" onclick="setGrid(5)">25 TILES</button>
+    <button class="gsz" onclick="setGrid(6)">36 TILES</button>
+    <button class="gsz" onclick="setGrid(7)">49 TILES</button>
+  </div>
+
+  <div id="grid"></div>
+
+  <div id="ctrl">
+    <div class="row">
+      <div class="rlbl">BET</div>
+      <div class="bet-wrap">
+        <button class="adj" onclick="adjBet(0.5)">½</button>
+        <input type="number" id="bet-in" value="1.00" min="0.01" step="0.01">
+        <button class="adj" onclick="adjBet(2)">2×</button>
+      </div>
+    </div>
+    <div class="row">
+      <div class="rlbl"></div>
+      <div class="qbets">
+        <button class="qb" onclick="setBet(0.1)">0.1</button>
+        <button class="qb" onclick="setBet(0.5)">0.5</button>
+        <button class="qb" onclick="setBet(1)">1</button>
+        <button class="qb" onclick="setBet(5)">5</button>
+        <button class="qb" onclick="setBet(10)">10</button>
+      </div>
+    </div>
+    <div class="row">
+      <div class="rlbl">MINES</div>
+      <div class="mines-wrap">
+        <input type="range" id="mines-sl" min="1" max="24" value="3" oninput="onMines(this.value)">
+        <div class="mnum" id="mnum">3</div>
+      </div>
+    </div>
+    <div class="minfo">
+      <span id="minfo-l">Safe: 22 | 1st click: 88.0%</span>
+      <span id="minfo-r">Gate reach: 19.8%</span>
+    </div>
+    <div class="row btns">
+      <button class="btn-s" id="btn-s" onclick="startGame()">START</button>
+      <button class="btn-c" id="btn-c" onclick="cashOut()" disabled>CASH OUT</button>
+    </div>
+  </div>
+
+  <!-- PROVABLY FAIR PANEL -->
+  <div id="pf-bar">
+    <div class="pf-row">
+      <span class="pf-lbl">CLIENT SEED</span>
+      <input id="pf-client-in" type="text" maxlength="64" placeholder="type your own or leave random">
+      <button class="pf-btn" onclick="rotateClientSeed()">NEW</button>
+    </div>
+    <div class="pf-row">
+      <span class="pf-lbl">SERVER HASH</span>
+      <span class="pf-val" id="pf-hash">—</span>
+    </div>
+    <div class="pf-row">
+      <span class="pf-lbl">NONCE</span>
+      <span class="pf-val" id="pf-nonce">0</span>
+      <span class="pf-lbl" style="width:auto;margin-left:12px">LAST SEED</span>
+      <span class="pf-val" id="pf-last" style="color:rgba(0,255,238,0.6)">—</span>
+      <button class="pf-btn" onclick="openVerifier()">VERIFY</button>
+    </div>
+  </div>
+
+  <div id="history"></div>
+</div>
+
+<!-- VERIFIER OVERLAY -->
+<div id="pf-ov" class="hid">
+  <div id="pf-box">
+    <div class="pf-title">⬡ PROVABLY FAIR</div>
+    <div class="pf-sub">VERIFY ANY ROUND · PASTE SEED TRIPLET</div>
+    <div class="pf-field"><label>SERVER SEED (revealed after round)</label><input id="v-server" type="text" placeholder="paste server seed here"></div>
+    <div class="pf-field"><label>CLIENT SEED</label><input id="v-client" type="text" placeholder="paste client seed"></div>
+    <div class="pf-field"><label>NONCE</label><input id="v-nonce" type="number" value="1" min="1"></div>
+    <div style="display:flex;gap:8px">
+      <div class="pf-field" style="flex:1"><label>GRID SIZE (tiles)</label><input id="v-grid" type="number" value="25" min="9" max="49"></div>
+      <div class="pf-field" style="flex:1"><label>MINES</label><input id="v-mines" type="number" value="3" min="1" max="25"></div>
+    </div>
+    <button id="pf-verify-btn" onclick="runVerify()">VERIFY ROUND</button>
+    <div id="pf-result"></div>
+    <button class="pf-close" onclick="closeVerifier()">CLOSE</button>
+  </div>
+</div>
+
+<!-- GATE -->
+<div id="gate-ov" class="hid">
+  <div class="g-hdr">⚡ FATE GATE ⚡</div>
+  <div class="g-sub">PICK 10 THRESHOLD REACHED</div>
+  <div class="g-pre" id="g-pre"></div>
+  <div id="gcards">
+    <div class="gc" id="gc0" style="--gc-col:#444466">
+      <div class="gc-mult" style="font-size:22px;letter-spacing:2px">—</div><div class="gc-name">PASS</div><div class="gc-prob">60%</div>
+    </div>
+    <div class="gc" id="gc1" style="--gc-col:#00aaff">
+      <div class="gc-mult">1.5×</div><div class="gc-name">BOOST</div><div class="gc-prob">25%</div>
+    </div>
+    <div class="gc" id="gc2" style="--gc-col:#ffaa00">
+      <div class="gc-mult">3×</div><div class="gc-name">SPARK</div><div class="gc-prob">10%</div>
+    </div>
+    <div class="gc" id="gc3" style="--gc-col:#cc00ff">
+      <div class="gc-mult">5×</div><div class="gc-name">INFERNO</div><div class="gc-prob">5%</div>
+    </div>
+  </div>
+  <div id="gate-res" class="hid"></div>
+  <div id="gate-newmult" class="hid"></div>
+</div>
+
+<!-- RESULT (cashout only) -->
+<div id="res-ov" class="hid">
+  <div id="res-box"></div>
+</div>
+
+<script>
+const G={
+  bal:100,bet:1,mines:3,N:25,cols:5,
+  active:false,minePos:new Set(),revealed:new Set(),
+  safePicks:0,mult:1,gateAdjust:1,gating:false,
+  serverSeed:'',clientSeed:'',lastServerSeed:'',seed:'',nonce:0,
+  audioCtx:null,humOsc:null,humGain:null,humLfo:null,humLfoGain:null,
+  history:[],
+};
+
+// MATH
+function calcMult(M,k){
+  if(k===0)return 1;
+  const N=G.N,S=N-M,h=0.03;
+  let m=1;
+  for(let i=0;i<k;i++)m*=(N-i)/(S-i);
+  return parseFloat((m*(1-h)).toFixed(4));
+}
+function survProb(M,k){
+  const N=G.N,S=N-M;let p=1;
+  for(let i=0;i<k;i++)p*=(S-i)/(N-i);
+  return p;
+}
+
+// GATE DEFINITIONS
+const GATE=[
+  {name:'PASS',   coeff:1.0, color:'#444466', idx:0},
+  {name:'BOOST',  coeff:1.5, color:'#00aaff', idx:1},
+  {name:'SPARK',  coeff:3.0, color:'#ffaa00', idx:2},
+  {name:'INFERNO',coeff:5.0, color:'#cc00ff', idx:3},
+];
+// E[G] = 1.0*0.60 + 1.5*0.25 + 3*0.10 + 5*0.05 = 1.325 (gate is +EV but creates tension)
+function rollGate(){
+  const r=Math.random();
+  if(r<0.60)return GATE[0];
+  if(r<0.85)return GATE[1];
+  if(r<0.95)return GATE[2];
+  return GATE[3];
+}
+
+// MINES
+function placeMines(n){
+  const a=Array.from({length:G.N},(_,i)=>i);
+  for(let i=G.N-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}
+  return new Set(a.slice(0,n));
+}
+
+// AUDIO
+function initAudio(){if(!G.audioCtx)G.audioCtx=new(window.AudioContext||window.webkitAudioContext)();}
+function tone(freq,type,dur,vol){
+  if(!G.audioCtx)return;
+  type=type||'sine';dur=dur||0.18;vol=vol||0.3;
+  const o=G.audioCtx.createOscillator(),g=G.audioCtx.createGain();
+  o.connect(g);g.connect(G.audioCtx.destination);
+  o.type=type;o.frequency.setValueAtTime(freq,G.audioCtx.currentTime);
+  g.gain.setValueAtTime(vol,G.audioCtx.currentTime);
+  g.gain.exponentialRampToValueAtTime(0.001,G.audioCtx.currentTime+dur);
+  o.start();o.stop(G.audioCtx.currentTime+dur);
+}
+
+// Continuous pitched hum — rises in pitch and intensity each safe pick
+function startHum(){
+  if(!G.audioCtx||G.humOsc)return;
+  G.humOsc=G.audioCtx.createOscillator();
+  G.humGain=G.audioCtx.createGain();
+  G.humLfo=G.audioCtx.createOscillator();
+  G.humLfoGain=G.audioCtx.createGain();
+  G.humLfo.connect(G.humLfoGain);
+  G.humLfoGain.connect(G.humGain.gain);
+  G.humOsc.connect(G.humGain);
+  G.humGain.connect(G.audioCtx.destination);
+  G.humOsc.type='sine';G.humLfo.type='sine';
+  G.humOsc.frequency.setValueAtTime(55,G.audioCtx.currentTime);
+  G.humGain.gain.setValueAtTime(0.012,G.audioCtx.currentTime);
+  G.humLfo.frequency.setValueAtTime(3,G.audioCtx.currentTime);
+  G.humLfoGain.gain.setValueAtTime(0,G.audioCtx.currentTime);
+  G.humOsc.start();G.humLfo.start();
+}
+function updateHum(k){
+  if(!G.humOsc)return;
+  const t=G.audioCtx.currentTime;
+  G.humOsc.frequency.setTargetAtTime(Math.min(55+k*17,340),t,0.12);
+  G.humGain.gain.setTargetAtTime(Math.min(0.012+k*0.024,0.38),t,0.12);
+  G.humLfo.frequency.setTargetAtTime(3+k*0.5,t,0.2);
+  G.humLfoGain.gain.setTargetAtTime(Math.min(k*0.007,0.07),t,0.2);
+}
+function stopHum(){
+  if(!G.humOsc)return;
+  try{G.humGain.gain.setTargetAtTime(0,G.audioCtx.currentTime,0.08);}catch(e){}
+  setTimeout(()=>{
+    try{G.humOsc.stop();G.humLfo.stop();}catch(e){}
+    G.humOsc=G.humGain=G.humLfo=G.humLfoGain=null;
+  },200);
+}
+function playBoom(){
+  if(!G.audioCtx)return;
+  // White noise burst — the "bang"
+  const bufSize=G.audioCtx.sampleRate*0.18;
+  const buf=G.audioCtx.createBuffer(1,bufSize,G.audioCtx.sampleRate);
+  const data=buf.getChannelData(0);
+  for(let i=0;i<bufSize;i++) data[i]=(Math.random()*2-1)*Math.pow(1-i/bufSize,2.5);
+  const noise=G.audioCtx.createBufferSource();
+  noise.buffer=buf;
+  const noiseGain=G.audioCtx.createGain();
+  const noiseFilter=G.audioCtx.createBiquadFilter();
+  noiseFilter.type='bandpass';noiseFilter.frequency.value=180;noiseFilter.Q.value=0.5;
+  noise.connect(noiseFilter);noiseFilter.connect(noiseGain);noiseGain.connect(G.audioCtx.destination);
+  noiseGain.gain.setValueAtTime(1.2,G.audioCtx.currentTime);
+  noiseGain.gain.exponentialRampToValueAtTime(0.001,G.audioCtx.currentTime+0.22);
+  noise.start();noise.stop(G.audioCtx.currentTime+0.22);
+  // Sub thump underneath
+  tone(48,'sine',0.35,0.55);
+  tone(90,'sine',0.18,0.3);
+}
+function playCash(){
+  [440,554,659,880].forEach((f,i)=>setTimeout(()=>tone(f,'sine',0.32,0.38),i*70));
+}
+function playGate(o){
+  if(o.name==='PASS'){
+    tone(220,'sine',0.4,0.2); // flat, neutral
+    return;
+  }
+  const ch={BOOST:[392,494,587],SPARK:[440,554,659,784],INFERNO:[440,554,659,880,1108]};
+  (ch[o.name]||[440]).forEach((f,i)=>setTimeout(()=>tone(f,'sine',o.name==='INFERNO'?1.0:0.45,0.35),i*50));
+  if(o.name==='INFERNO')setTimeout(()=>tone(2200,'sine',0.3,0.2),350);
+}
+
+// GATE CARD STROBE — guaranteed to land on correct card
+function buildSeq(target,n,steps){
+  const base=Array.from({length:steps},(_,i)=>i%n);
+  const shift=(target-base[steps-1]+n)%n;
+  return base.map(v=>(v+shift)%n);
+}
+function animateGate(outcome,cb){
+  const steps=20;
+  const seq=buildSeq(outcome.idx,4,steps);
+  const cards=[...document.querySelectorAll('.gc')];
+  const delays=[];
+  let d=28;
+  for(let i=0;i<steps;i++){delays.push(Math.round(d));d=Math.min(d*1.18,220);}
+  let i=0;
+  cards.forEach(c=>c.classList.remove('lit'));
+  function next(){
+    cards.forEach((c,ci)=>c.classList.toggle('lit',ci===seq[i]));
+    i++;
+    if(i<steps)setTimeout(next,delays[i]);
+    else setTimeout(cb,320);
+  }
+  setTimeout(next,40);
+}
+
+// UI
+const $=id=>document.getElementById(id);
+
+// ── PROVABLY FAIR ──────────────────────────────────────────────
+function genSeed(){const a=new Uint8Array(16);crypto.getRandomValues(a);return Array.from(a).map(b=>b.toString(16).padStart(2,'0')).join('');}
+
+async function sha256hex(str){
+  const buf=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(str));
+  return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
+}
+
+// Derive mine positions from seed triplet + grid N
+async function deriveMines(serverSeed,clientSeed,nonce,N){
+  const hash=await sha256hex(serverSeed+':'+clientSeed+':'+nonce);
+  // Use hash bytes to build a seeded shuffle (Fisher-Yates with hash-derived values)
+  const bytes=[];
+  let h=hash;
+  while(bytes.length<N*4){const ext=await sha256hex(h);h=ext;ext.match(/.{2}/g).forEach(b=>bytes.push(parseInt(b,16)));}
+  const arr=Array.from({length:N},(_,i)=>i);
+  for(let i=N-1;i>0;i--){
+    // Use 4 bytes for each swap index to reduce bias
+    const idx=(bytes[i*4]<<24|bytes[i*4+1]<<16|bytes[i*4+2]<<8|bytes[i*4+3])>>>0;
+    const j=idx%(i+1);
+    [arr[i],arr[j]]=[arr[j],arr[i]];
+  }
+  return arr; // arr[0..M-1] are mine positions
+}
+
+async function newServerCommitment(){
+  G.serverSeed=genSeed();
+  const hash=await sha256hex(G.serverSeed);
+  $('pf-hash').textContent=hash.slice(0,32)+'…';
+  $('pf-hash').title=hash;
+}
+
+function rotateClientSeed(){
+  if(G.active)return;
+  const inp=$('pf-client-in');
+  inp.value=genSeed();
+  G.clientSeed=inp.value;
+}
+
+function updatePFPanel(){
+  const inp=$('pf-client-in');
+  if(inp.value.trim()) G.clientSeed=inp.value.trim();
+  $('pf-nonce').textContent=G.nonce;
+  $('pf-last').textContent=G.lastServerSeed?G.lastServerSeed.slice(0,18)+'…':'—';
+  if(G.lastServerSeed) $('pf-last').title=G.lastServerSeed;
+}
+
+function openVerifier(){
+  if(G.lastServerSeed) $('v-server').value=G.lastServerSeed;
+  const inp=$('pf-client-in');
+  if(inp.value) $('v-client').value=inp.value;
+  $('v-nonce').value=Math.max(1,G.nonce);
+  $('v-grid').value=G.N;
+  $('v-mines').value=G.mines||3;
+  $('pf-result').textContent='';
+  $('pf-result').className='';
+  $('pf-ov').classList.remove('hid');
+}
+function closeVerifier(){$('pf-ov').classList.add('hid');}
+
+async function runVerify(){
+  const ss=$('v-server').value.trim();
+  const cs=$('v-client').value.trim();
+  const nc=parseInt($('v-nonce').value)||1;
+  const N=parseInt($('v-grid').value)||25;
+  const M=Math.min(parseInt($('v-mines').value)||3, N-1);
+  const res=$('pf-result');
+  if(!ss||!cs){res.textContent='⚠ Paste both seeds to verify.';res.className='fail';return;}
+  res.textContent='Computing…';res.className='';
+  try{
+    const hash=await sha256hex(ss);
+    const committed=await sha256hex(ss);
+    const mines=await deriveMines(ss,cs,nc,N);
+    const mineSet=new Set(mines.slice(0,M));
+    const cols=Math.round(Math.sqrt(N));
+    let out='✓ HASH VERIFIED\n';
+    out+=hash.slice(0,24)+'…\n\n';
+    out+=`SEED TRIPLET\n${ss.slice(0,20)}… : ${cs.slice(0,12)}… : ${nc}\n\n`;
+    out+=`MINE POSITIONS (${M} mines in ${N} tiles)\n`;
+    out+=mines.slice(0,M).sort((a,b)=>a-b).join(', ')+'\n\n';
+    out+=`GRID LAYOUT  [💥 mine  · safe]\n`;
+    for(let r=0;r<cols;r++){
+      let line='';
+      for(let c=0;c<cols;c++){
+        const idx=r*cols+c;
+        line+=(mineSet.has(idx)?'💥':'·')+(c<cols-1?' ':'');
+      }
+      out+=line+'\n';
+    }
+    res.textContent=out;res.className='ok';
+  }catch(e){res.textContent='✗ Error: '+e.message;res.className='fail';}
+}
+// ── END PROVABLY FAIR ──────────────────────────────────────────
+
+function updateStats(){
+  $('bal').textContent=G.bal.toFixed(2);
+  $('mult-val').textContent=G.mult.toFixed(4)+'×';
+  const cv=$('cash-val'),pv=$('picks-val');
+  if(G.active&&G.safePicks>0){
+    cv.textContent='⬡'+(G.bet*G.mult).toFixed(2);cv.style.color='var(--green)';
+    const rem=10-(G.safePicks%10===0?10:G.safePicks%10);
+    pv.textContent=G.safePicks+' ['+rem+']';
+    pv.style.color=rem<=2?'var(--red)':rem<=4?'var(--orange)':'var(--magenta)';
+  } else {
+    cv.textContent='—';cv.style.color='var(--dim)';
+    pv.textContent='—';pv.style.color='var(--dim)';
+  }
+  $('sdis') && ($('sdis').textContent=G.seed.slice(0,16)+'…');
+  $('ndis') && ($('ndis').textContent=G.nonce);
+}
+
+function setCtrls(on){
+  $('btn-s').disabled=on;
+  $('btn-c').disabled=!on||G.safePicks===0||G.gating;
+  $('mines-sl').disabled=on;
+  $('bet-in').disabled=on;
+}
+
+// Cash out button glows progressively more with each safe pick
+function updateCashGlow(k){
+  const b=$('btn-c');
+  if(k===0){b.style.boxShadow='none';return;}
+  const s=Math.min(k/10,1);
+  const r1=6+k*5,r2=12+k*9;
+  const a1=0.18+s*0.65,a2=0.08+s*0.38;
+  b.style.boxShadow=`0 0 ${r1}px rgba(0,255,136,${a1}),0 0 ${r2}px rgba(0,255,136,${a2}),inset 0 0 ${k*2}px rgba(0,255,136,0.06)`;
+}
+
+function toast(msg,color,dur){
+  dur=dur||1800;
+  let t=$('_toast');
+  if(!t){t=document.createElement('div');t.id='_toast';document.body.appendChild(t);}
+  clearTimeout(t._t);
+  t.textContent=msg;
+  t.style.cssText='position:fixed;top:60px;left:50%;transform:translateX(-50%);background:rgba(4,4,7,0.96);border:1px solid '+color+';color:'+color+';font-family:Orbitron,sans-serif;font-size:11px;letter-spacing:2px;padding:9px 18px;border-radius:6px;z-index:3000;white-space:nowrap;box-shadow:0 0 18px '+color+';opacity:1;transition:opacity 0.4s;pointer-events:none;';
+  t._t=setTimeout(()=>{t.style.opacity='0';setTimeout(()=>t.remove(),400);},dur-400);
+}
+
+// GRID
+function buildGrid(){
+  const g=$('grid');g.innerHTML='';
+  g.style.gridTemplateColumns='repeat('+G.cols+',1fr)';
+  // Icon size scales down for larger grids
+  const iconSz = G.cols<=3?22:G.cols<=5?17:G.cols<=6?13:10;
+  for(let i=0;i<G.N;i++){
+    const t=document.createElement('div');
+    t.className='tile';t.id='t'+i;
+    t.innerHTML='<span class="ticon" style="font-size:0"></span>';
+    t.addEventListener('click',()=>clickTile(i));
+    g.appendChild(t);
+  }
+  // store icon size for reveals
+  G.iconSz=iconSz;
+}
+const tile=i=>$('t'+i);
+function revealTile(i,isMine){
+  const t=tile(i);
+  t.classList.add(isMine?'mine':'safe','revealed','disabled');
+  const ic=t.querySelector('.ticon');
+  ic.textContent=isMine?'💥':'◈';
+  ic.style.fontSize=G.iconSz+'px';
+  if(!isMine)ic.style.color='var(--cyan)';
+}
+function showAllMines(){
+  G.minePos.forEach(i=>{
+    if(!G.revealed.has(i)){
+      const t=tile(i);
+      t.classList.add('mine-dim','revealed','disabled');
+      const ic=t.querySelector('.ticon');
+      ic.textContent='✸';ic.style.fontSize=(G.iconSz-3)+'px';ic.style.color='rgba(255,34,68,0.5)';
+    }
+  });
+}
+function disableAll(){for(let i=0;i<G.N;i++)tile(i).classList.add('disabled');}
+function enableUnrevealed(){for(let i=0;i<G.N;i++){if(!G.revealed.has(i))tile(i).classList.remove('disabled');}}
+
+// GAME FLOW
+function startGame(){
+  initAudio();
+  G.bet=Math.max(0.01,parseFloat($('bet-in').value)||1);
+  G.mines=parseInt($('mines-sl').value);
+  if(G.bet>G.bal){toast('Insufficient balance','#ff2244');return;}
+  // Snapshot client seed from input
+  const inp=$('pf-client-in');
+  if(inp.value.trim()) G.clientSeed=inp.value.trim();
+  if(!G.clientSeed) G.clientSeed=genSeed();
+  G.bal-=G.bet;
+  G.active=true;G.minePos=placeMines(G.mines);G.revealed=new Set();
+  G.safePicks=0;G.mult=1;G.gateAdjust=1;G.gating=false;G.nonce++;
+  // Rotate server seed — old one becomes lastServerSeed (revealed)
+  G.lastServerSeed=G.serverSeed;
+  newServerCommitment(); // async — generates new serverSeed and shows hash
+  updatePFPanel();
+  buildGrid();updateStats();setCtrls(true);updateCashGlow(0);
+  // Disable grid buttons during play
+  document.querySelectorAll('.gsz').forEach(b=>b.disabled=true);
+  tone(330,'sine',0.25,0.25);
+  startHum();
+}
+
+function clickTile(i){
+  if(!G.active||G.revealed.has(i)||G.gating)return;
+  G.revealed.add(i);
+  if(G.minePos.has(i)){revealTile(i,true);gameOver();return;}
+  G.safePicks++;
+  G.mult=parseFloat((calcMult(G.mines,G.safePicks)*G.gateAdjust).toFixed(4));
+  revealTile(i,false);
+  updateHum(G.safePicks);
+  updateStats();
+  updateCashGlow(G.safePicks);
+  setCtrls(true);
+  if(G.safePicks===G.N-G.mines){cashOut(true);return;}
+  if(G.safePicks%10===0)triggerGate();
+}
+
+function gameOver(){
+  G.active=false;
+  stopHum();
+  showAllMines();disableAll();
+  playBoom();
+  $('main').classList.remove('shake');void $('main').offsetWidth;
+  $('main').classList.add('shake');
+  setTimeout(()=>$('main').classList.remove('shake'),450);
+  toast('💥  MINE — lost ⬡'+G.bet.toFixed(2),'#ff2244',2200);
+  G.history.unshift({win:false,payout:0,picks:G.safePicks});
+  G.history=G.history.slice(0,8);
+  updateHistory();
+  // No overlay — just reset silently after a beat
+  setTimeout(()=>{
+    G.safePicks=0;G.mult=1;
+    updateStats();updateCashGlow(0);setCtrls(false);
+    document.querySelectorAll('.gsz').forEach(b=>b.disabled=false);
+    buildGrid();
+  },900);
+}
+
+function cashOut(auto){
+  if(!G.active||G.safePicks===0||G.gating)return;
+  G.active=false;
+  stopHum();disableAll();
+  const payout=parseFloat((G.bet*G.mult).toFixed(2));
+  G.bal+=payout;playCash();
+  G.history.unshift({win:true,payout,picks:G.safePicks,mult:G.mult});
+  G.history=G.history.slice(0,8);
+  updateHistory();updateStats();updateCashGlow(0);setCtrls(false);
+  document.querySelectorAll('.gsz').forEach(b=>b.disabled=false);
+  showResult(payout);
+}
+
+// GATE
+function triggerGate(){
+  G.gating=true;disableAll();
+  $('btn-c').disabled=true;
+  const outcome=rollGate();
+  const pre=G.mult;
+  $('gate-ov').classList.remove('hid');
+  $('gate-res').classList.add('hid');
+  $('gate-newmult').classList.add('hid');
+  $('g-pre').textContent='running: '+pre.toFixed(4)+'× · spinning…';
+  animateGate(outcome,()=>{
+    playGate(outcome);
+    const r=$('gate-res');
+    const nm=$('gate-newmult');
+    G.gateAdjust*=outcome.coeff;
+    G.mult=parseFloat((calcMult(G.mines,G.safePicks)*G.gateAdjust).toFixed(4));
+    if(outcome.name==='PASS'){
+      r.textContent='PASS — no change';
+      r.style.color='#888899';
+      r.style.textShadow='none';
+      nm.textContent='multiplier held at '+pre.toFixed(4)+'× · keep going';
+      nm.style.color='#555570';
+    } else {
+      r.textContent=outcome.name+'  ×'+outcome.coeff;
+      r.style.color=outcome.color;
+      r.style.textShadow='0 0 25px '+outcome.color;
+      nm.textContent=pre.toFixed(4)+'× → '+G.mult.toFixed(4)+'×';
+      nm.style.color=outcome.color;
+    }
+    r.classList.remove('hid');
+    nm.classList.remove('hid');
+    updateStats();
+    setTimeout(()=>{
+      $('gate-ov').classList.add('hid');
+      G.gating=false;
+      enableUnrevealed();
+      updateCashGlow(G.safePicks);
+      setCtrls(true);
+    },800);
+  });
+}
+
+// RESULT (cashout only — no popup on mine)
+function showResult(payout){
+  const profit=payout-G.bet;
+  $('res-box').innerHTML=`
+    <div class="rt" style="color:var(--green);text-shadow:0 0 22px var(--green)">CASHED OUT</div>
+    <div class="ra" style="color:var(--gold);text-shadow:0 0 30px var(--gold)">⬡ ${payout.toFixed(2)}</div>
+    <div class="rs">profit: +${profit.toFixed(2)}<br>${G.safePicks} safe picks · ${G.mult.toFixed(4)}× final multiplier<br>${G.mines} mines · ${G.N} tiles</div>
+    <button class="btn-again" onclick="closeResult()">PLAY AGAIN</button>`;
+  $('res-ov').classList.remove('hid');
+}
+function closeResult(){
+  $('res-ov').classList.add('hid');
+  G.active=false;G.safePicks=0;G.mult=1;G.gateAdjust=1;G.gating=false;
+  document.querySelectorAll('.gsz').forEach(b=>b.disabled=false);
+  updateStats();updateCashGlow(0);setCtrls(false);buildGrid();
+}
+
+// HISTORY
+function updateHistory(){
+  const el=$('history');el.innerHTML='';
+  G.history.forEach(h=>{
+    const d=document.createElement('div');d.className='hdot';
+    d.style.background=h.win?'rgba(0,255,136,0.1)':'rgba(255,34,68,0.1)';
+    d.style.border='1px solid '+(h.win?'rgba(0,255,136,0.3)':'rgba(255,34,68,0.3)');
+    d.style.color=h.win?'var(--green)':'var(--red)';
+    d.textContent=h.win?'W':'L';
+    d.title=h.win?'⬡'+h.payout.toFixed(2)+' · '+h.picks+' picks':'Lost · '+h.picks+' picks';
+    el.appendChild(d);
+  });
+}
+
+// CONTROLS
+function adjBet(f){const v=parseFloat($('bet-in').value)||1;$('bet-in').value=Math.max(0.01,(v*f)).toFixed(2);}
+function setBet(v){$('bet-in').value=v.toFixed(2);}
+function onMines(v){
+  const m=parseInt(v),N=G.N,S=N-m;
+  $('mnum').textContent=m;
+  $('minfo-l').textContent='Safe: '+S+' | 1st click: '+((S/N)*100).toFixed(1)+'%';
+  $('minfo-r').textContent='Gate reach: '+(survProb(m,Math.min(10,S))*100).toFixed(1)+'%';
+}
+function setGrid(cols){
+  if(G.active)return;
+  G.cols=cols;G.N=cols*cols;
+  const sl=$('mines-sl');
+  sl.max=Math.min(G.N-1,25);
+  if(parseInt(sl.value)>parseInt(sl.max)) sl.value=Math.max(1,Math.floor(parseInt(sl.max)/2));
+  G.mines=parseInt(sl.value);
+  document.querySelectorAll('.gsz').forEach(b=>b.classList.remove('active'));
+  const labels={3:0,5:1,6:2,7:3};
+  document.querySelectorAll('.gsz')[labels[cols]].classList.add('active');
+  buildGrid();onMines(sl.value);
+}
+
+// INIT
+async function init(){
+  G.clientSeed=genSeed();
+  $('pf-client-in').value=G.clientSeed;
+  G.iconSz=17;
+  await newServerCommitment();
+  buildGrid();updateStats();setCtrls(false);onMines(3);updatePFPanel();
+  $('mines-sl').addEventListener('input',function(){G.mines=parseInt(this.value);onMines(this.value);});
+  $('bet-in').addEventListener('change',function(){this.value=Math.max(0.01,parseFloat(this.value)||1).toFixed(2);});
+  $('pf-client-in').addEventListener('input',function(){if(!G.active)G.clientSeed=this.value.trim()||G.clientSeed;});
+}
+init();
+</script>
+</body>
+</html>
